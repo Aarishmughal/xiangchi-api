@@ -97,7 +97,7 @@ const userSchema = mongoose.Schema(
 
 // INDEXES
 userSchema.index({ mmr: -1 });
-userSchema.index({ username: 1 });
+// userSchema.index({ username: 1 });
 
 // MIDDLEWARES
 userSchema.pre('save', async function (next) {
