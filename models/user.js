@@ -75,18 +75,18 @@ const userSchema = mongoose.Schema(
       ref: 'Game',
       default: null,
     },
-    friends: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-      },
-    ],
-    blockedUsers: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-      },
-    ],
+    // friends: [
+    //   {
+    //     type: mongoose.Schema.Types.ObjectId,
+    //     ref: 'User',
+    //   },
+    // ],
+    // blockedUsers: [
+    //   {
+    //     type: mongoose.Schema.Types.ObjectId,
+    //     ref: 'User',
+    //   },
+    // ],
     lastActive: {
       type: Date,
       default: Date.now,
