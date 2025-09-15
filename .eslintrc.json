@@ -1,0 +1,33 @@
+{
+  "env": {
+    "browser": true,
+    "es2021": true,
+    "node": true
+  },
+  "extends": ["eslint:recommended", "airbnb-base", "prettier"],
+  "parserOptions": {
+    "ecmaVersion": 12,
+    "sourceType": "module"
+  },
+  "rules": {
+    "no-console": "warn",
+    "func-names": "off",
+    "no-return-await": "off",
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+    "no-underscore-dangle": "off",
+    "consistent-return": "off",
+    "class-methods-use-this": "off",
+    "object-shorthand": "off",
+    "import/no-useless-path-segments": "off",
+    "import/no-extraneous-dependencies": ["error", { "devDependencies": true }],
+    "import/extensions": [
+      "error",
+      "ignorePackages",
+      {
+        "js": "never",
+        "mjs": "never",
+        "jsx": "never"
+      }
+    ]
+  }
+}
