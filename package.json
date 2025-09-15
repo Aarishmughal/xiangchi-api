@@ -4,12 +4,13 @@
   "description": "Backend API for the project Xiangchi",
   "main": "server.js",
   "scripts": {
-    "start": "nodemon server.js",
+    "dev": "nodemon server.js",
+    "start": "node server.js",
     "start:prod": "cross-env NODE_ENV=production nodemon server.js"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Aarishmughal-aumc/xiangchi-api.git"
+    "url": "git+https://github.com/Aarishmughal/xiangchi-api.git"
   },
   "keywords": [
     "xiangchi",
@@ -20,9 +21,9 @@
   "author": "Aarish",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/Aarishmughal-aumc/xiangchi-api/issues"
+    "url": "https://github.com/Aarishmughal/xiangchi-api/issues"
   },
-  "homepage": "https://github.com/Aarishmughal-aumc/xiangchi-api#readme",
+  "homepage": "https://github.com/Aarishmughal/xiangchi-api#readme",
   "dependencies": {
     "bcrypt": "^6.0.0",
     "dotenv": "^17.2.2",
