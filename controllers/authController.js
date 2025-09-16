@@ -43,7 +43,14 @@ exports.login = catchAsync(async (req, res, next) => {
 
 // SIGNUP METHOD
 exports.signup = catchAsync(async (req, res, next) => {
-  const user = await User.create(req.body);
+  const { username, email, password, passwordConfirm, photo } = req.body;
+  const user = await User.create({
+    username,
+    email,
+    password,
+    passwordConfirm,
+    photo,
+  });
   const token = signToken(user._id);
   res.status(201).json({
     status: 'success',
