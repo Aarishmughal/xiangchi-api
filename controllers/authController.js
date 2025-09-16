@@ -70,7 +70,7 @@ exports.protect = catchAsync(async (req, res, next) => {
     token = req.cookies.jwt;
   }
 
-  if (!token) {
+  if (!token || !req.cookies.jwt || !req.headers.authorization) {
     return next(
       new AppError('You are not logged in! Please log in to get access.', 401)
     );
@@ -97,8 +97,9 @@ exports.protect = catchAsync(async (req, res, next) => {
 });
 
 // RESTRICT TO MIDDLEWARE
-exports.restrictTo = (...roles) => {
-  return (req, res, next) => {
+exports.restrictTo =
+  (...roles) =>
+  (req, res, next) => {
     if (!roles.includes(req.user.role)) {
       return next(
         new AppError('You do not have permission to perform this action', 403)
@@ -106,7 +107,6 @@ exports.restrictTo = (...roles) => {
     }
     next();
   };
-};
 
 // TODO:
 // FORGOT PASSWORD METHOD: Mail the token

@@ -16,6 +16,7 @@
     "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
     "no-underscore-dangle": "off",
     "consistent-return": "off",
+    "prefer-destructuring": "off",
     "class-methods-use-this": "off",
     "object-shorthand": "off",
     "import/no-useless-path-segments": "off",
