@@ -10,13 +10,20 @@ const errorController = require('./controllers/errorController');
 
 const app = express();
 
+const corsOptions = {
+        origin: process.env.CLIENT_HOST,
+        methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed HTTP methods
+        allowedHeaders: ['Content-Type', 'Authorization'], // Allowed request headers
+        credentials: true // Allow cookies or other credentials to be sent
+    };
+
 // Middlewares
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 app.use(express.json());
 app.use(cookieParser());
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
