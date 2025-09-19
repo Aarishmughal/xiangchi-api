@@ -1,5 +1,6 @@
 const express = require('express');
 const morgan = require('morgan');
+const cors = require('cors');
 const cookieParser = require('cookie-parser');
 
 // Custom Modules
@@ -15,6 +16,7 @@ if (process.env.NODE_ENV === 'development') {
 }
 app.use(express.json());
 app.use(cookieParser());
+app.use(cors());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
