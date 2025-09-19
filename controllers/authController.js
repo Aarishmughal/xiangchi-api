@@ -6,9 +6,13 @@ const AppError = require('./../utils/AppError');
 const catchAsync = require('./../utils/catchAsync');
 
 // HELPER FUNCTION(s)
-const signToken = (id) =>
-  jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN,
+const signAccessToken = (id) =>
+  jwt.sign({ id }, process.env.JWT_ACCESS_SECRET, {
+    expiresIn: process.env.JWT_ACCESS_EXPIRES_IN,
+  });
+const signRefreshToken = (id) =>
+  jwt.sign({ id }, process.env.JWT_REFRESH_SECRET, {
+    expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   });
 const decodeToken = async (token) =>
   await promisify(jwt.verify)(token, process.env.JWT_SECRET);
@@ -25,19 +29,27 @@ exports.login = catchAsync(async (req, res, next) => {
     return next(new AppError('Incorrect email or password', 401));
   }
 
-  const token = signToken(user._id);
-  const cookieExpiresIn =
-    process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000 ||
-    90 * 24 * 60 * 60 * 1000; // 90 days default
-  const cookieOptions = {
-    expires: new Date(Date.now() + cookieExpiresIn),
+  const accessToken = signAccessToken(user._id);
+  const refreshToken = signRefreshToken(user._id);
+
+  // Set access token as HTTP-only cookie (optional, or send in body)
+  // res.cookie('jwt', accessToken, {
+  //   expires: new Date(Date.now() + cookieExpiresIn),
+  //   httpOnly: true,
+  //   secure: process.env.NODE_ENV === 'production', // Cookie will only be sent on an encrypted connection (HTTPS) in production
+  // });
+
+  // Set refresh token as HTTP-only cookie
+  res.cookie('refreshToken', refreshToken, {
+    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production', // Cookie will only be sent on an encrypted connection (HTTPS) in production
-  };
-  res.cookie('jwt', token, cookieOptions);
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+  });
+
   res.status(200).json({
     status: 'success',
-    token,
+    token: accessToken,
   });
 });
 
@@ -51,10 +63,50 @@ exports.signup = catchAsync(async (req, res, next) => {
     passwordConfirm,
     photo,
   });
-  const token = signToken(user._id);
+
+  const accessToken = signAccessToken(user._id);
+  const refreshToken = signRefreshToken(user._id);
+
+  res.cookie('refreshToken', refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+  });
+
   res.status(201).json({
     status: 'success',
-    token,
+    token: accessToken,
+  });
+});
+
+// REFRESH TOKEN METHOD
+exports.refreshToken = catchAsync(async (req, res, next) => {
+  const { refreshToken } = req.cookies;
+  if (!refreshToken) {
+    return next(new AppError('No refresh token provided', 401));
+  }
+  let decoded;
+  try {
+    decoded = await decodeToken(refreshToken);
+  } catch (err) {
+    return next(new AppError('Invalid refresh token', 401));
+  }
+  const user = await User.findById(decoded.id);
+  if (!user) {
+    return next(new AppError('User not found', 401));
+  }
+  const accessToken = signAccessToken(user._id);
+  // res.cookie('jwt', accessToken, {
+  //   httpOnly: true,
+  //   secure: process.env.NODE_ENV === 'production',
+  //   sameSite: 'strict',
+  //   expires: new Date(Date.now() + 15 * 60 * 1000), // 15 min
+  // });
+
+  res.status(200).json({
+    status: 'success',
+    token: accessToken,
   });
 });
 
