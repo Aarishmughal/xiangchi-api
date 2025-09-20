@@ -5,6 +5,27 @@ const User = require('./../models/user');
 const AppError = require('./../utils/AppError');
 const catchAsync = require('./../utils/catchAsync');
 
+// Cookie/Security config
+const isProd = process.env.NODE_ENV === 'production';
+const crossSite = process.env.CROSS_SITE_COOKIES === 'true'; // set to 'true' if frontend is on a different origin
+const baseCookie = {
+  httpOnly: true,
+  path: '/',
+  ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
+};
+const accessCookieOptions = {
+  ...baseCookie,
+  sameSite: crossSite ? 'none' : 'lax',
+  secure: isProd || crossSite, // SameSite=None requires Secure
+  expires: new Date(Date.now() + 15 * 60 * 1000),
+};
+const refreshCookieOptions = {
+  ...baseCookie,
+  sameSite: crossSite ? 'none' : 'lax',
+  secure: isProd || crossSite,
+  expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+};
+
 // HELPER FUNCTION(s)
 const signAccessToken = (id) =>
   jwt.sign({ id }, process.env.JWT_ACCESS_SECRET, {
@@ -14,8 +35,10 @@ const signRefreshToken = (id) =>
   jwt.sign({ id }, process.env.JWT_REFRESH_SECRET, {
     expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
   });
-const decodeToken = async (token) =>
-  await promisify(jwt.verify)(token, process.env.JWT_ACCESS_SECRET);
+const verifyAccessToken = (t) =>
+  promisify(jwt.verify)(t, process.env.JWT_ACCESS_SECRET);
+const verifyRefreshToken = (t) =>
+  promisify(jwt.verify)(t, process.env.JWT_REFRESH_SECRET);
 
 // LOGIN METHOD
 exports.login = catchAsync(async (req, res, next) => {
@@ -32,24 +55,11 @@ exports.login = catchAsync(async (req, res, next) => {
   const accessToken = signAccessToken(user._id);
   const refreshToken = signRefreshToken(user._id);
 
-  // Set access token as HTTP-only cookie (optional, or send in body)
-  res.cookie('accessToken', accessToken, {
-    expires: new Date(Date.now() + 15 * 60 * 1000), // 15 Minutes
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-  });
+  // Set cookies (cross-site compatible if CROSS_SITE_COOKIES=true)
+  res.cookie('accessToken', accessToken, accessCookieOptions);
+  res.cookie('refreshToken', refreshToken, refreshCookieOptions);
 
-  // Set refresh token as HTTP-only cookie
-  res.cookie('refreshToken', refreshToken, {
-    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-  });
-
-  res.status(200).json({
-    status: 'success',
-  });
+  res.status(200).json({ status: 'success' });
 });
 
 // SIGNUP METHOD
@@ -66,23 +76,10 @@ exports.signup = catchAsync(async (req, res, next) => {
   const accessToken = signAccessToken(user._id);
   const refreshToken = signRefreshToken(user._id);
 
-  // Set access token as HTTP-only cookie (optional, or send in body)
-  res.cookie('accessToken', accessToken, {
-    expires: new Date(Date.now() + 15 * 60 * 1000), // 15 Minutes
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-  });
+  res.cookie('accessToken', accessToken, accessCookieOptions);
+  res.cookie('refreshToken', refreshToken, refreshCookieOptions);
 
-  res.cookie('refreshToken', refreshToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-  });
-
-  res.status(201).json({
-    status: 'success',
-  });
+  res.status(201).json({ status: 'success' });
 });
 
 // REFRESH TOKEN METHOD
@@ -93,7 +90,7 @@ exports.refreshToken = catchAsync(async (req, res, next) => {
   }
   let decoded;
   try {
-    decoded = await decodeToken(refreshToken);
+    decoded = await verifyRefreshToken(refreshToken); // use refresh secret
   } catch (err) {
     return next(new AppError('Invalid refresh token', 401));
   }
@@ -101,24 +98,16 @@ exports.refreshToken = catchAsync(async (req, res, next) => {
   if (!user) {
     return next(new AppError('User not found', 401));
   }
-  const accessToken = signAccessToken(user._id);
-  // res.cookie('jwt', accessToken, {
-  //   httpOnly: true,
-  //   secure: process.env.NODE_ENV === 'production',
-  //   sameSite: 'strict',
-  //   expires: new Date(Date.now() + 15 * 60 * 1000), // 15 min
-  // });
 
-  res.status(200).json({
-    status: 'success',
-    token: accessToken,
-  });
+  const newAccess = signAccessToken(user._id);
+  res.cookie('accessToken', newAccess, accessCookieOptions);
+
+  res.status(200).json({ status: 'success', token: newAccess });
 });
 
 // PROTECT MIDDLEWARE
 exports.protect = catchAsync(async (req, res, next) => {
   let accessToken;
-  console.log(req.cookies);
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith('Bearer')
@@ -128,14 +117,13 @@ exports.protect = catchAsync(async (req, res, next) => {
     accessToken = req.cookies.accessToken;
   }
 
-  // Cookie parser is a required middleware for this line of code to work
   if (!accessToken) {
     return next(
       new AppError('You are not logged in! Please log in to get access.', 401)
     );
   }
 
-  const decodedToken = await decodeToken(accessToken);
+  const decodedToken = await verifyAccessToken(accessToken);
 
   const user = await User.findById(decodedToken.id);
   if (!user) {
@@ -168,9 +156,6 @@ exports.restrictTo =
   };
 
 // TODO:
-// FORGOT PASSWORD METHOD: Mail the token
 exports.forgotPassword = catchAsync(async (req, res, next) => {});
-// RESET PASSWORD METHOD: Update the password via the token from email
 exports.resetPassword = catchAsync(async (req, res, next) => {});
-// UPDATE PASSWORD METHOD: Update the password when logged in
 exports.updatePassword = catchAsync(async (req, res, next) => {});
