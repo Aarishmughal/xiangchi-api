@@ -118,6 +118,7 @@ exports.refreshToken = catchAsync(async (req, res, next) => {
 // PROTECT MIDDLEWARE
 exports.protect = catchAsync(async (req, res, next) => {
   let accessToken;
+  console.log(req.cookies);
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith('Bearer')
