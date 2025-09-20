@@ -14,8 +14,10 @@ const signRefreshToken = (id) =>
   jwt.sign({ id }, process.env.JWT_REFRESH_SECRET, {
     expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   });
-const decodeToken = async (token) =>
-  await promisify(jwt.verify)(token, process.env.JWT_ACCESS_SECRET);
+const verifyAccessToken = (token) =>
+  promisify(jwt.verify)(token, process.env.JWT_ACCESS_SECRET);
+const verifyRefreshToken = (token) =>
+  promisify(jwt.verify)(token, process.env.JWT_REFRESH_SECRET);
 
 // LOGIN METHOD
 exports.login = catchAsync(async (req, res, next) => {
@@ -116,7 +118,7 @@ exports.refreshToken = catchAsync(async (req, res, next) => {
   }
   let decoded;
   try {
-    decoded = await decodeToken(refreshToken);
+    decoded = await verifyRefreshToken(refreshToken);
   } catch (err) {
     return next(new AppError('Invalid refresh token', 401));
   }
@@ -157,7 +159,7 @@ exports.protect = catchAsync(async (req, res, next) => {
     );
   }
 
-  const decodedToken = await decodeToken(accessToken);
+  const decodedToken = await verifyAccessToken(accessToken);
 
   const user = await User.findById(decodedToken.id);
   if (!user) {
