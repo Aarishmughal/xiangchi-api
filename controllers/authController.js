@@ -32,20 +32,31 @@ exports.login = catchAsync(async (req, res, next) => {
   const accessToken = signAccessToken(user._id);
   const refreshToken = signRefreshToken(user._id);
 
-  // Set access token as HTTP-only cookie (optional, or send in body)
-  res.cookie('accessToken', accessToken, {
-    expires: new Date(Date.now() + 15 * 60 * 1000), // 15 Minutes
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-  });
+  const isProd = process.env.NODE_ENV === 'production';
+  const crossSite = process.env.CROSS_SITE_COOKIES === 'true'; // set true if frontend on different site/origin
 
-  // Set refresh token as HTTP-only cookie
-  res.cookie('refreshToken', refreshToken, {
-    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+  const baseCookie = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-  });
+    path: '/',
+    ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
+  };
+
+  const accessCookieOptions = {
+    ...baseCookie,
+    expires: new Date(Date.now() + 15 * 60 * 1000),
+    sameSite: crossSite ? 'none' : 'lax',
+    secure: isProd || crossSite, // SameSite=None requires Secure
+  };
+
+  const refreshCookieOptions = {
+    ...baseCookie,
+    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    sameSite: crossSite ? 'none' : 'lax',
+    secure: isProd || crossSite,
+  };
+
+  res.cookie('accessToken', accessToken, accessCookieOptions);
+  res.cookie('refreshToken', refreshToken, refreshCookieOptions);
 
   res.status(200).json({
     status: 'success',
@@ -66,19 +77,31 @@ exports.signup = catchAsync(async (req, res, next) => {
   const accessToken = signAccessToken(user._id);
   const refreshToken = signRefreshToken(user._id);
 
-  // Set access token as HTTP-only cookie (optional, or send in body)
-  res.cookie('accessToken', accessToken, {
-    expires: new Date(Date.now() + 15 * 60 * 1000), // 15 Minutes
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-  });
+  const isProd = process.env.NODE_ENV === 'production';
+  const crossSite = process.env.CROSS_SITE_COOKIES === 'true'; // set true if frontend on different site/origin
 
-  res.cookie('refreshToken', refreshToken, {
+  const baseCookie = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    path: '/',
+    ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
+  };
+
+  const accessCookieOptions = {
+    ...baseCookie,
+    expires: new Date(Date.now() + 15 * 60 * 1000),
+    sameSite: crossSite ? 'none' : 'lax',
+    secure: isProd || crossSite, // SameSite=None requires Secure
+  };
+
+  const refreshCookieOptions = {
+    ...baseCookie,
     expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-  });
+    sameSite: crossSite ? 'none' : 'lax',
+    secure: isProd || crossSite,
+  };
+
+  res.cookie('accessToken', accessToken, accessCookieOptions);
+  res.cookie('refreshToken', refreshToken, refreshCookieOptions);
 
   res.status(201).json({
     status: 'success',
