@@ -33,11 +33,11 @@ exports.login = catchAsync(async (req, res, next) => {
   const refreshToken = signRefreshToken(user._id);
 
   // Set access token as HTTP-only cookie (optional, or send in body)
-  // res.cookie('jwt', accessToken, {
-  //   expires: new Date(Date.now() + cookieExpiresIn),
-  //   httpOnly: true,
-  //   secure: process.env.NODE_ENV === 'production', // Cookie will only be sent on an encrypted connection (HTTPS) in production
-  // });
+  res.cookie('accessToken', accessToken, {
+    expires: new Date(Date.now() + 15 * 60 * 1000), // 15 Minutes
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+  });
 
   // Set refresh token as HTTP-only cookie
   res.cookie('refreshToken', refreshToken, {
@@ -49,7 +49,6 @@ exports.login = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     status: 'success',
-    token: accessToken,
   });
 });
 
@@ -67,6 +66,13 @@ exports.signup = catchAsync(async (req, res, next) => {
   const accessToken = signAccessToken(user._id);
   const refreshToken = signRefreshToken(user._id);
 
+  // Set access token as HTTP-only cookie (optional, or send in body)
+  res.cookie('accessToken', accessToken, {
+    expires: new Date(Date.now() + 15 * 60 * 1000), // 15 Minutes
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+  });
+
   res.cookie('refreshToken', refreshToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
@@ -76,7 +82,6 @@ exports.signup = catchAsync(async (req, res, next) => {
 
   res.status(201).json({
     status: 'success',
-    token: accessToken,
   });
 });
 
@@ -112,24 +117,24 @@ exports.refreshToken = catchAsync(async (req, res, next) => {
 
 // PROTECT MIDDLEWARE
 exports.protect = catchAsync(async (req, res, next) => {
-  let token;
+  let accessToken;
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith('Bearer')
   ) {
-    token = req.headers.authorization.split(' ')[1];
-  } else if (req.cookies && req.cookies.refreshToken) {
-    token = req.cookies.refreshToken;
+    accessToken = req.headers.authorization.split(' ')[1];
+  } else if (req.cookies && req.cookies.accessToken) {
+    accessToken = req.cookies.accessToken;
   }
 
   // Cookie parser is a required middleware for this line of code to work
-  if (!token) {
+  if (!accessToken) {
     return next(
       new AppError('You are not logged in! Please log in to get access.', 401)
     );
   }
 
-  const decodedToken = await decodeToken(token);
+  const decodedToken = await decodeToken(accessToken);
 
   const user = await User.findById(decodedToken.id);
   if (!user) {
