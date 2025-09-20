@@ -56,7 +56,7 @@ exports.login = catchAsync(async (req, res, next) => {
   const refreshToken = signRefreshToken(user._id);
 
   // Set cookies (cross-site compatible if CROSS_SITE_COOKIES=true)
-  // res.cookie('accessToken', accessToken, accessCookieOptions);
+  res.cookie('accessToken', accessToken, accessCookieOptions);
   res.cookie('refreshToken', refreshToken, refreshCookieOptions);
 
   res.status(200).json({ status: 'success', accessToken });
