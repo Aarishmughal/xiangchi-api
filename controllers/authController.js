@@ -118,8 +118,8 @@ exports.protect = catchAsync(async (req, res, next) => {
     req.headers.authorization.startsWith('Bearer')
   ) {
     token = req.headers.authorization.split(' ')[1];
-  } else if (req.cookies && req.cookies.jwt) {
-    token = req.cookies.jwt;
+  } else if (req.cookies && req.cookies.refreshToken) {
+    token = req.cookies.refreshToken;
   }
 
   // Cookie parser is a required middleware for this line of code to work
