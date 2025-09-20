@@ -34,7 +34,7 @@ const corsOptions = {
   credentials: true,
 };
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 
 // Middlewares
 if (process.env.NODE_ENV === 'development') {
