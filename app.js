@@ -10,13 +10,31 @@ const errorController = require('./controllers/errorController');
 
 const app = express();
 
+// Trust proxy is required for Secure cookies when behind a proxy (e.g., Render, Vercel, Nginx)
+app.set('trust proxy', 1);
+
+const allowedOrigins = (
+  process.env.CLIENT_HOSTS ||
+  process.env.CLIENT_HOST ||
+  ''
+)
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
 const corsOptions = {
-  origin: process.env.CLIENT_HOST,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  origin(origin, callback) {
+    if (!origin) return callback(null, true); // allow non-browser tools (Postman)
+    if (allowedOrigins.length === 0 || allowedOrigins.includes(origin))
+      return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
 };
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // Middlewares
 if (process.env.NODE_ENV === 'development') {
