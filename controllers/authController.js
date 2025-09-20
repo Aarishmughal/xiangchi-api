@@ -12,7 +12,7 @@ const signAccessToken = (id) =>
   });
 const signRefreshToken = (id) =>
   jwt.sign({ id }, process.env.JWT_REFRESH_SECRET, {
-    expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+    expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
   });
 const decodeToken = async (token) =>
   await promisify(jwt.verify)(token, process.env.JWT_ACCESS_SECRET);
