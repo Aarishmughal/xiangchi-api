@@ -15,7 +15,7 @@ const signRefreshToken = (id) =>
     expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   });
 const decodeToken = async (token) =>
-  await promisify(jwt.verify)(token, process.env.JWT_SECRET);
+  await promisify(jwt.verify)(token, process.env.JWT_ACCESS_SECRET);
 
 // LOGIN METHOD
 exports.login = catchAsync(async (req, res, next) => {
