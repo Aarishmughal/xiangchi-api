@@ -13,12 +13,12 @@ const baseCookie = {
   path: '/',
   ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
 };
-const accessCookieOptions = {
-  ...baseCookie,
-  sameSite: crossSite ? 'none' : 'lax',
-  secure: isProd || crossSite, // SameSite=None requires Secure
-  expires: new Date(Date.now() + 15 * 60 * 1000),
-};
+// const accessCookieOptions = {
+//   ...baseCookie,
+//   sameSite: crossSite ? 'none' : 'lax',
+//   secure: isProd || crossSite,
+//   expires: new Date(Date.now() + 15 * 60 * 1000),
+// };
 const refreshCookieOptions = {
   ...baseCookie,
   sameSite: crossSite ? 'none' : 'lax',
@@ -56,10 +56,10 @@ exports.login = catchAsync(async (req, res, next) => {
   const refreshToken = signRefreshToken(user._id);
 
   // Set cookies (cross-site compatible if CROSS_SITE_COOKIES=true)
-  res.cookie('accessToken', accessToken, accessCookieOptions);
+  // res.cookie('accessToken', accessToken, accessCookieOptions);
   res.cookie('refreshToken', refreshToken, refreshCookieOptions);
 
-  res.status(200).json({ status: 'success' });
+  res.status(200).json({ status: 'success', accessToken });
 });
 
 // SIGNUP METHOD
@@ -76,10 +76,10 @@ exports.signup = catchAsync(async (req, res, next) => {
   const accessToken = signAccessToken(user._id);
   const refreshToken = signRefreshToken(user._id);
 
-  res.cookie('accessToken', accessToken, accessCookieOptions);
+  // res.cookie('accessToken', accessToken, accessCookieOptions);
   res.cookie('refreshToken', refreshToken, refreshCookieOptions);
 
-  res.status(201).json({ status: 'success' });
+  res.status(201).json({ status: 'success', accessToken });
 });
 
 // REFRESH TOKEN METHOD
