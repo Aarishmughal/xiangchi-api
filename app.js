@@ -10,45 +10,11 @@ const errorController = require('./controllers/errorController');
 
 const app = express();
 
-// Trust proxy is required for Secure cookies when behind a proxy (e.g., Render, Vercel, Nginx)
-app.set('trust proxy', 1);
-
-const allowedOrigins = (
-  process.env.CLIENT_HOSTS ||
-  process.env.CLIENT_HOST ||
-  ''
-)
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean);
-
-const corsOptions = {
-  // origin(origin, callback) {
-  //   // Allow any origin if explicitly enabled (useful in dev only)
-  //   if (process.env.CORS_ALLOW_ANY === 'true') return callback(null, true);
-  //   if (!origin) return callback(null, true); // allow non-browser tools (Postman)
-  //   if (allowedOrigins.length === 0 || allowedOrigins.includes(origin))
-  //     return callback(null, true);
-  //   return callback(new Error('Not allowed by CORS'));
-  // },
-  origin: process.env.LIVE_HOST || '*',
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-};
-app.use(cors(corsOptions));
-// Example using Express.js
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', process.env.LIVE_HOST || '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  next();
-});
-
 // Middlewares
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
