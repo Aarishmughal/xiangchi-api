@@ -40,6 +40,7 @@ const setupCookies = (res, user) => {
   const refreshToken = signRefreshToken(user._id);
   res.cookie('accessToken', accessToken, accessCookieOptions);
   res.cookie('refreshToken', refreshToken, refreshCookieOptions);
+  console.log('Cookies:', res.cookies);
 };
 
 // LOGIN METHOD
@@ -102,7 +103,6 @@ exports.refreshToken = catchAsync(async (req, res, next) => {
 // PROTECT MIDDLEWARE
 exports.protect = catchAsync(async (req, res, next) => {
   let accessToken;
-  console.log('Cookies:', req.cookies); // Debugging line to check cookies
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith('Bearer')

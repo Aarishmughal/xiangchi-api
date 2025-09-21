@@ -22,6 +22,7 @@ app.use(
     allowedHeaders: ['Content-Type', 'Authorization'],
   })
 ); // Enable CORS for all origins
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
