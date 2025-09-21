@@ -13,16 +13,16 @@ const baseCookie = {
   path: '/',
   ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
 };
-const accessCookieOptions = {
-  ...baseCookie,
-  sameSite: crossSite ? 'none' : 'lax',
-  // secure: isProd || crossSite,
-  expires: new Date(Date.now() + 15 * 60 * 1000),
-};
+// const accessCookieOptions = {
+//   ...baseCookie,
+//   sameSite: crossSite ? 'none' : 'lax',
+//   secure: isProd || crossSite,
+//   expires: new Date(Date.now() + 15 * 60 * 1000),
+// };
 const refreshCookieOptions = {
   ...baseCookie,
   sameSite: crossSite ? 'none' : 'lax',
-  // secure: isProd || crossSite,
+  secure: isProd || crossSite,
   expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
 };
 
