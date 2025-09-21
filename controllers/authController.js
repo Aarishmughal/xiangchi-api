@@ -6,24 +6,24 @@ const AppError = require('./../utils/AppError');
 const catchAsync = require('./../utils/catchAsync');
 
 // Cookie/Security config
-const isProd = process.env.NODE_ENV === 'production';
-const crossSite = process.env.CROSS_SITE_COOKIES === 'true'; // set to 'true' if frontend is on a different origin
+// const isProd = process.env.NODE_ENV === 'production';
+// const crossSite = process.env.CROSS_SITE_COOKIES === 'true'; // set to 'true' if frontend is on a different origin
 const baseCookie = {
   httpOnly: true,
   path: '/',
-  ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
 };
 const accessCookieOptions = {
   ...baseCookie,
-  sameSite: crossSite ? 'none' : 'lax',
-  // secure: isProd || crossSite,
+  sameSite: 'none', // cross-site
+  secure: true,
   expires: new Date(Date.now() + 15 * 60 * 1000),
 };
 const refreshCookieOptions = {
   ...baseCookie,
-  sameSite: crossSite ? 'none' : 'lax',
-  secure: isProd, // only true in production
+  sameSite: 'none', // cross-site
+  secure: true,
   expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+  // domain: 'xiangchi-api.onrender.com' // optional, better leave it unset
 };
 
 // HELPER FUNCTION(s)
@@ -56,6 +56,7 @@ exports.login = catchAsync(async (req, res, next) => {
   const refreshToken = signRefreshToken(user._id);
 
   // Set cookies (cross-site compatible if CROSS_SITE_COOKIES=true)
+  res.cookie('accessToken', accessToken, accessCookieOptions);
   res.cookie('refreshToken', refreshToken, refreshCookieOptions);
 
   res.status(200).json({ status: 'success', accessToken });
@@ -75,7 +76,7 @@ exports.signup = catchAsync(async (req, res, next) => {
   const accessToken = signAccessToken(user._id);
   const refreshToken = signRefreshToken(user._id);
 
-  // res.cookie('accessToken', accessToken, accessCookieOptions);
+  res.cookie('accessToken', accessToken, accessCookieOptions);
   res.cookie('refreshToken', refreshToken, refreshCookieOptions);
 
   res.status(201).json({ status: 'success', accessToken });
