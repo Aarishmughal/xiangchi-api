@@ -31,13 +31,19 @@ const corsOptions = {
   //     return callback(null, true);
   //   return callback(new Error('Not allowed by CORS'));
   // },
-  origin: allowedOrigins.length > 0 ? allowedOrigins : '*',
+  origin: process.env.LIVE_HOST || '*',
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
 };
 app.use(cors(corsOptions));
-app.options(/.*/, cors(corsOptions));
+// Example using Express.js
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', process.env.LIVE_HOST || '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  next();
+});
 
 // Middlewares
 if (process.env.NODE_ENV === 'development') {
