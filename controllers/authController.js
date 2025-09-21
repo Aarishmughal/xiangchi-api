@@ -22,7 +22,7 @@ const accessCookieOptions = {
 const refreshCookieOptions = {
   ...baseCookie,
   sameSite: crossSite ? 'none' : 'lax',
-  // secure: isProd || crossSite,
+  secure: isProd, // only true in production
   expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
 };
 
@@ -56,7 +56,6 @@ exports.login = catchAsync(async (req, res, next) => {
   const refreshToken = signRefreshToken(user._id);
 
   // Set cookies (cross-site compatible if CROSS_SITE_COOKIES=true)
-  // res.cookie('accessToken', accessToken, accessCookieOptions);
   res.cookie('refreshToken', refreshToken, refreshCookieOptions);
 
   res.status(200).json({ status: 'success', accessToken });
