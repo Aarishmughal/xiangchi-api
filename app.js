@@ -24,6 +24,8 @@ const allowedOrigins = (
 
 const corsOptions = {
   origin(origin, callback) {
+    // Allow any origin if explicitly enabled (useful in dev only)
+    if (process.env.CORS_ALLOW_ANY === 'true') return callback(null, true);
     if (!origin) return callback(null, true); // allow non-browser tools (Postman)
     if (allowedOrigins.length === 0 || allowedOrigins.includes(origin))
       return callback(null, true);
