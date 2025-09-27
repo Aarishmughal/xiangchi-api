@@ -10,19 +10,36 @@ const errorController = require('./controllers/errorController');
 
 const app = express();
 
+// const allowedOrigins = (
+//   process.env.CLIENT_HOSTS ||
+//   process.env.CLIENT_HOST ||
+//   ''
+// )
+//   .split(',')
+//   .map((s) => s.trim())
+//   .filter(Boolean);
+// origin(origin, callback) {
+//   // Allow any origin if explicitly enabled (useful in dev only)
+//   if (process.env.CORS_ALLOW_ANY === 'true') return callback(null, true);
+//   if (!origin) return callback(null, true); // allow non-browser tools (Postman)
+//   if (allowedOrigins.length === 0 || allowedOrigins.includes(origin))
+//     return callback(null, true);
+//   return callback(new Error('Not allowed by CORS'));
+// },
+
+const corsOptions = {
+  origin: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
+
 // Middlewares
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
-app.use(
-  cors({
-    origin: true,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  })
-); // Enable CORS for all origins
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
