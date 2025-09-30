@@ -5,14 +5,6 @@ const User = require('./../models/user');
 const AppError = require('./../utils/AppError');
 const catchAsync = require('./../utils/catchAsync');
 
-// Cookie/Security config
-const baseCookie = {
-  httpOnly: true,
-  path: '/',
-  sameSite: 'none', // cross-site
-  secure: true,
-};
-
 // HELPER FUNCTION(s)
 const signToken = (id, type) => {
   if (type === 'access') {
@@ -26,23 +18,9 @@ const signToken = (id, type) => {
 };
 const verifyToken = (token, type) => {
   if (type === 'access') {
-    promisify(jwt.verify)(token, process.env.JWT_ACCESS_SECRET);
-  } else {
-    promisify(jwt.verify)(token, process.env.JWT_REFRESH_SECRET);
+    return promisify(jwt.verify)(token, process.env.JWT_ACCESS_SECRET);
   }
-};
-
-const setupCookies = (res, user) => {
-  const accessToken = signToken(user._id, 'access');
-  const refreshToken = signToken(user._id, 'refresh');
-  res.cookie('accessToken', accessToken, {
-    ...baseCookie,
-    expires: new Date(Date.now() + 15 * 60 * 1000),
-  });
-  res.cookie('refreshToken', refreshToken, {
-    ...baseCookie,
-    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-  });
+  return promisify(jwt.verify)(token, process.env.JWT_REFRESH_SECRET);
 };
 
 // LOGIN METHOD
@@ -57,9 +35,10 @@ exports.login = catchAsync(async (req, res, next) => {
     return next(new AppError('Incorrect email or password', 401));
   }
 
-  setupCookies(res, user);
+  const accessToken = signToken(user._id, 'access');
+  const refreshToken = signToken(user._id, 'refresh');
 
-  res.status(200).json({ status: 'success' });
+  res.status(200).json({ status: 'success', token: accessToken, refreshToken });
 });
 
 // SIGNUP METHOD
@@ -71,54 +50,66 @@ exports.signup = catchAsync(async (req, res, next) => {
     password,
     passwordConfirm,
   });
-  console.log(req.body);
 
   if (!user) {
     return next(new AppError('User could not be Created', 400));
   }
 
-  setupCookies(res, user);
+  const accessToken = signToken(user._id, 'access');
+  const refreshToken = signToken(user._id, 'refresh');
 
-  res.status(201).json({ status: 'success' });
+  res.status(201).json({ status: 'success', token: accessToken, refreshToken });
 });
 
 // REFRESH TOKEN METHOD
 exports.refreshToken = catchAsync(async (req, res, next) => {
-  const { refreshToken } = req.cookies;
+  let refreshToken;
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith('Bearer')
+  ) {
+    refreshToken = req.headers.authorization.split(' ')[1];
+  }
+
   if (!refreshToken) {
     return next(new AppError('No refresh token provided', 401));
   }
+
   let decoded;
   try {
-    decoded = await verifyToken(refreshToken, 'refresh'); // use refresh secret
+    decoded = await verifyToken(refreshToken, 'refresh');
   } catch (err) {
-    return next(new AppError('Invalid refresh token', 401));
+    return next(new AppError('Invalid or expired refresh token', 401));
   }
+
   const user = await User.findById(decoded.id);
   if (!user) {
     return next(new AppError('User not found', 401));
   }
 
-  const newAccess = signToken(user._id, 'access');
-  res.cookie('accessToken', newAccess, {
-    ...baseCookie,
-    expires: new Date(Date.now() + 15 * 60 * 1000),
-  });
+  // Check if password was changed after token was issued
+  if (user.changedPasswordAfter(decoded.iat)) {
+    return next(
+      new AppError('User recently changed password. Please log in again.', 401)
+    );
+  }
 
-  res.status(200).json({ status: 'success', token: newAccess });
+  const newAccessToken = signToken(user._id, 'access');
+
+  res.status(200).json({
+    status: 'success',
+    token: newAccessToken,
+  });
 });
 
 // PROTECT MIDDLEWARE
 exports.protect = catchAsync(async (req, res, next) => {
-  console.log('Cookies:', req.cookies);
   let accessToken;
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith('Bearer')
   ) {
     accessToken = req.headers.authorization.split(' ')[1];
-  } else if (req.cookies && req.cookies.accessToken) {
-    accessToken = req.cookies.accessToken;
   }
 
   if (!accessToken) {
@@ -127,7 +118,12 @@ exports.protect = catchAsync(async (req, res, next) => {
     );
   }
 
-  const decodedToken = await verifyToken(accessToken, 'access');
+  let decodedToken;
+  try {
+    decodedToken = await verifyToken(accessToken, 'access');
+  } catch (err) {
+    return next(new AppError('Invalid or expired access token', 401));
+  }
 
   const user = await User.findById(decodedToken.id);
   if (!user) {
@@ -149,15 +145,9 @@ exports.protect = catchAsync(async (req, res, next) => {
 
 // LOGOUT METHOD
 exports.logout = (req, res) => {
-  res.cookie('accessToken', 'loggedout', {
-    ...baseCookie,
-    expires: new Date(Date.now() + 10 * 1000),
-  });
-  res.cookie('refreshToken', 'loggedout', {
-    ...baseCookie,
-    expires: new Date(Date.now() + 10 * 1000),
-  });
-  res.status(200).json({ status: 'success' });
+  res
+    .status(200)
+    .json({ status: 'success', message: 'Logged out successfully' });
 };
 
 // RESTRICT TO MIDDLEWARE
