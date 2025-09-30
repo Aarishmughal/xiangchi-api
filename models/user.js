@@ -38,11 +38,11 @@ const userSchema = mongoose.Schema(
     passwordConfirm: {
       type: String,
       required: [true, 'Password confirmation is required'],
-      validator: function (val) {
-        if (this.isModified('password')) {
+      validate: {
+        validator: function (val) {
           return val === this.password;
-        }
-        return true;
+        },
+        message: 'Passwords do not match',
       },
     },
     passwordChangedAt: Date,
@@ -96,14 +96,6 @@ userSchema.index({ mmr: -1 });
 // userSchema.index({ username: 1 });
 
 // MIDDLEWARES
-userSchema.pre('save', function (next) {
-  if (!this.isModified('password')) return next();
-  if (this.password !== this.passwordConfirm) {
-    this.invalidate('passwordConfirm', 'Passwords do not match');
-  }
-  next();
-});
-
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
   this.password = await bcrypt.hash(this.password, 10);
