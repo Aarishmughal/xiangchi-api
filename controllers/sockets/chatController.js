@@ -1,40 +1,57 @@
 const chatController = {
-  handleConnection(socket, io) {
-    console.log('Chat: User connected:', socket.id);
+  handleConnection(socket, _io) {
+    // Handle room-based chat messages
+    socket.on('send_chat_message', ({ roomId, message }) => {
+      if (!roomId || !message) {
+        return socket.emit('error', {
+          message: 'Room ID and message are required',
+        });
+      }
 
-    socket.on('chat_message', (msg) => {
-      console.log('Chat: Message received:', msg);
-      const messageWithUser = {
-        user: socket.id,
-        message: msg,
-        timestamp: new Date().toISOString(),
-      };
-      io.emit('chat_message', messageWithUser); // broadcast to all clients
-    });
-
-    socket.on('join_chat_room', (roomId) => {
-      socket.join(roomId);
-      socket.emit('chat_status', { message: `Joined chat room: ${roomId}` });
-    });
-
-    socket.on('leave_chat_room', (roomId) => {
-      socket.leave(roomId);
-      socket.emit('chat_status', { message: `Left chat room: ${roomId}` });
-    });
-
-    socket.on('chat_room_message', ({ roomId, message }) => {
-      const messageWithUser = {
-        user: socket.id,
-        message,
+      const chatMessage = {
+        id: Date.now(),
+        user: {
+          id: socket.data.user?._id || socket.id,
+          username: socket.data.user?.username || 'Anonymous',
+        },
+        message: message.trim(),
         timestamp: new Date().toISOString(),
         roomId,
       };
-      io.to(roomId).emit('chat_room_message', messageWithUser);
+
+      // Send to all players in the room (including sender)
+      socket.to(roomId).emit('chat_message_received', chatMessage);
+      socket.emit('chat_message_sent', chatMessage);
+    });
+
+    // Handle typing indicators
+    socket.on('typing_start', ({ roomId }) => {
+      if (roomId) {
+        socket.to(roomId).emit('user_typing', {
+          user: {
+            id: socket.data.user?._id || socket.id,
+            username: socket.data.user?.username || 'Anonymous',
+          },
+          roomId,
+        });
+      }
+    });
+
+    socket.on('typing_stop', ({ roomId }) => {
+      if (roomId) {
+        socket.to(roomId).emit('user_stopped_typing', {
+          user: {
+            id: socket.data.user?._id || socket.id,
+            username: socket.data.user?.username || 'Anonymous',
+          },
+          roomId,
+        });
+      }
     });
   },
 
-  handleDisconnection(socket) {
-    console.log('Chat: User disconnected:', socket.id);
+  handleDisconnection(_socket) {
+    // Chat cleanup handled by xiangqi controller
   },
 };
 

@@ -11,9 +11,9 @@ const attachSocketHandlers = (io) => {
     chatController.handleConnection(socket, io);
 
     // Handle disconnection
-    socket.on('disconnect', async () => {
+    socket.on('disconnect', () => {
       console.log('Socket disconnected:', socket.id);
-      await xiangqiController.handleDisconnection(socket);
+      xiangqiController.handleDisconnection(socket);
       chatController.handleDisconnection(socket);
     });
   });

@@ -138,6 +138,19 @@ exports.protect = catchAsync(async (req, res, next) => {
   next();
 });
 
+// LOGOUT METHOD
+exports.logout = (req, res) => {
+  res.cookie('accessToken', 'loggedout', {
+    ...accessCookieOptions,
+    expires: new Date(Date.now() + 10 * 1000),
+  });
+  res.cookie('refreshToken', 'loggedout', {
+    ...refreshCookieOptions,
+    expires: new Date(Date.now() + 10 * 1000),
+  });
+  res.status(200).json({ status: 'success' });
+};
+
 // RESTRICT TO MIDDLEWARE
 exports.restrictTo =
   (...roles) =>
