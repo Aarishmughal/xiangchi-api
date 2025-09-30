@@ -54,7 +54,6 @@ exports.login = catchAsync(async (req, res, next) => {
     return next(new AppError('Incorrect email or password', 401));
   }
 
-  // Set cookies (cross-site compatible if CROSS_SITE_COOKIES=true)
   setupCookies(res, user);
 
   res.status(200).json({ status: 'success' });
@@ -62,14 +61,18 @@ exports.login = catchAsync(async (req, res, next) => {
 
 // SIGNUP METHOD
 exports.signup = catchAsync(async (req, res, next) => {
-  const { username, email, password, passwordConfirm, photo } = req.body;
+  const { username, email, password, passwordConfirm } = req.body;
   const user = await User.create({
     username,
     email,
     password,
     passwordConfirm,
-    photo,
   });
+  console.log(req.body);
+  
+  if (!user) {
+    return next(new AppError('User could not be Created', 400));
+  }
 
   setupCookies(res, user);
 
