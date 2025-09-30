@@ -37,17 +37,13 @@ const userSchema = mongoose.Schema(
     },
     passwordConfirm: {
       type: String,
-      required: [true, 'User Passwords do not match'],
-      validate: {
-        validator: function (val) {
-          return this.isModified('password') ? val === this.password : true;
-        },
-        message: 'Passwords do not match',
+      required: [true, 'Password confirmation is required'],
+      validator: function (val) {
+        if (this.isModified('password')) {
+          return val === this.password;
+        }
+        return true;
       },
-    },
-    photo: {
-      type: String,
-      default: 'default.jpg',
     },
     passwordChangedAt: Date,
     passwordResetToken: String,
@@ -100,6 +96,14 @@ userSchema.index({ mmr: -1 });
 // userSchema.index({ username: 1 });
 
 // MIDDLEWARES
+userSchema.pre('save', function (next) {
+  if (!this.isModified('password')) return next();
+  if (this.password !== this.passwordConfirm) {
+    this.invalidate('passwordConfirm', 'Passwords do not match');
+  }
+  next();
+});
+
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
   this.password = await bcrypt.hash(this.password, 10);
