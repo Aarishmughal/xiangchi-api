@@ -12,34 +12,37 @@ const baseCookie = {
   sameSite: 'none', // cross-site
   secure: true,
 };
-const accessCookieOptions = {
-  ...baseCookie,
-  expires: new Date(Date.now() + 15 * 60 * 1000),
-};
-const refreshCookieOptions = {
-  ...baseCookie,
-  expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-};
 
 // HELPER FUNCTION(s)
-const signAccessToken = (id) =>
-  jwt.sign({ id }, process.env.JWT_ACCESS_SECRET, {
-    expiresIn: process.env.JWT_ACCESS_EXPIRES_IN,
-  });
-const signRefreshToken = (id) =>
-  jwt.sign({ id }, process.env.JWT_REFRESH_SECRET, {
+const signToken = (id, type) => {
+  if (type === 'access') {
+    return jwt.sign({ id }, process.env.JWT_ACCESS_SECRET, {
+      expiresIn: process.env.JWT_ACCESS_EXPIRES_IN,
+    });
+  }
+  return jwt.sign({ id }, process.env.JWT_REFRESH_SECRET, {
     expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
   });
-const verifyAccessToken = (t) =>
-  promisify(jwt.verify)(t, process.env.JWT_ACCESS_SECRET);
-const verifyRefreshToken = (t) =>
-  promisify(jwt.verify)(t, process.env.JWT_REFRESH_SECRET);
+};
+const verifyToken = (token, type) => {
+  if (type === 'access') {
+    promisify(jwt.verify)(token, process.env.JWT_ACCESS_SECRET);
+  } else {
+    promisify(jwt.verify)(token, process.env.JWT_REFRESH_SECRET);
+  }
+};
 
 const setupCookies = (res, user) => {
-  const accessToken = signAccessToken(user._id);
-  const refreshToken = signRefreshToken(user._id);
-  res.cookie('accessToken', accessToken, accessCookieOptions);
-  res.cookie('refreshToken', refreshToken, refreshCookieOptions);
+  const accessToken = signToken(user._id, 'access');
+  const refreshToken = signToken(user._id, 'refresh');
+  res.cookie('accessToken', accessToken, {
+    ...baseCookie,
+    expires: new Date(Date.now() + 15 * 60 * 1000),
+  });
+  res.cookie('refreshToken', refreshToken, {
+    ...baseCookie,
+    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+  });
 };
 
 // LOGIN METHOD
@@ -69,7 +72,7 @@ exports.signup = catchAsync(async (req, res, next) => {
     passwordConfirm,
   });
   console.log(req.body);
-  
+
   if (!user) {
     return next(new AppError('User could not be Created', 400));
   }
@@ -87,7 +90,7 @@ exports.refreshToken = catchAsync(async (req, res, next) => {
   }
   let decoded;
   try {
-    decoded = await verifyRefreshToken(refreshToken); // use refresh secret
+    decoded = await verifyToken(refreshToken, 'refresh'); // use refresh secret
   } catch (err) {
     return next(new AppError('Invalid refresh token', 401));
   }
@@ -96,8 +99,11 @@ exports.refreshToken = catchAsync(async (req, res, next) => {
     return next(new AppError('User not found', 401));
   }
 
-  const newAccess = signAccessToken(user._id);
-  res.cookie('accessToken', newAccess, accessCookieOptions);
+  const newAccess = signToken(user._id, 'access');
+  res.cookie('accessToken', newAccess, {
+    ...baseCookie,
+    expires: new Date(Date.now() + 15 * 60 * 1000),
+  });
 
   res.status(200).json({ status: 'success', token: newAccess });
 });
@@ -121,7 +127,7 @@ exports.protect = catchAsync(async (req, res, next) => {
     );
   }
 
-  const decodedToken = await verifyAccessToken(accessToken);
+  const decodedToken = await verifyToken(accessToken, 'access');
 
   const user = await User.findById(decodedToken.id);
   if (!user) {
@@ -144,11 +150,11 @@ exports.protect = catchAsync(async (req, res, next) => {
 // LOGOUT METHOD
 exports.logout = (req, res) => {
   res.cookie('accessToken', 'loggedout', {
-    ...accessCookieOptions,
+    ...baseCookie,
     expires: new Date(Date.now() + 10 * 1000),
   });
   res.cookie('refreshToken', 'loggedout', {
-    ...refreshCookieOptions,
+    ...baseCookie,
     expires: new Date(Date.now() + 10 * 1000),
   });
   res.status(200).json({ status: 'success' });
