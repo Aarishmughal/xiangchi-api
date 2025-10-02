@@ -43,6 +43,7 @@ exports.login = catchAsync(async (req, res, next) => {
 
 // SIGNUP METHOD
 exports.signup = catchAsync(async (req, res, next) => {
+  console.log('Received Data: ', req.body);
   const { username, email, password, passwordConfirm } = req.body;
   const user = await User.create({
     username,
@@ -54,6 +55,7 @@ exports.signup = catchAsync(async (req, res, next) => {
   if (!user) {
     return next(new AppError('User could not be Created', 400));
   }
+  console.log(user);
 
   const accessToken = signToken(user._id, 'access');
   const refreshToken = signToken(user._id, 'refresh');
@@ -140,7 +142,6 @@ exports.protect = catchAsync(async (req, res, next) => {
   }
 
   req.user = user;
-  console.log(req.user);
   next();
 });
 
