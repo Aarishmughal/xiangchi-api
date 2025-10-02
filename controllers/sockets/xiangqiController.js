@@ -31,7 +31,7 @@ const xiangqiController = {
 
   async handleConnection(socket, io) {
     const user = socket.data.user;
-    socket.emit('connect', {
+    socket.emit('xiangqi-connected', {
       message: 'Connected to Xiangqi game server',
       authenticated: socket.data.authenticated,
     });

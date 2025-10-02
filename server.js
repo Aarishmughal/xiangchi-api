@@ -36,6 +36,7 @@ const io = new Server(server, {
 
 // Add socket authentication middleware
 const { socketAuth } = require('./middleware/socketAuth');
+
 io.use(socketAuth);
 
 attachSocketHandlers(io);
