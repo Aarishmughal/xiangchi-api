@@ -19,6 +19,12 @@ function initialBoard() {
   ];
 }
 
+// Helper function to get socket.io instance
+function getSocketIO() {
+  const app = require('../app');
+  return app.get('io');
+}
+
 // Create a new game room
 exports.createRoom = catchAsync(async (req, res, _next) => {
   const roomId = nanoid(8);
@@ -88,6 +94,25 @@ exports.joinRoom = catchAsync(async (req, res, next) => {
 
   // Populate after save
   await game.populate('players.red players.black', 'username email');
+
+  // Notify via socket if available
+  const io = getSocketIO();
+  if (io) {
+    const roomInfo = {
+      roomId,
+      players: [
+        game.players.red._id.toString(),
+        game.players.black._id.toString(),
+      ],
+      currentPlayer: game.turn,
+    };
+
+    io.to(roomId).emit('player-joined', {
+      playerId: req.user._id.toString(),
+      playerColor: 'black',
+      roomInfo,
+    });
+  }
 
   res.status(200).json({
     status: 'success',

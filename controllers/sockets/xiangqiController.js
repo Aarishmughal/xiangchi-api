@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { nanoid } = require('nanoid');
 const Game = require('../../models/game');
 const Move = require('../../models/move');
 const User = require('../../models/user');
@@ -7,156 +8,239 @@ function opposite(color) {
   return color === 'red' ? 'black' : 'red';
 }
 
+// Initial Xiangqi board setup (10x9) Red uppercase, Black lowercase
+function initialBoard() {
+  return [
+    ['R', 'H', 'E', 'A', 'G', 'A', 'E', 'H', 'R'],
+    ['.', '.', '.', '.', '.', '.', '.', '.', '.'],
+    ['.', 'C', '.', '.', '.', '.', '.', 'C', '.'],
+    ['S', '.', 'S', '.', 'S', '.', 'S', '.', 'S'],
+    ['.', '.', '.', '.', '.', '.', '.', '.', '.'],
+    ['.', '.', '.', '.', '.', '.', '.', '.', '.'],
+    ['s', '.', 's', '.', 's', '.', 's', '.', 's'],
+    ['.', 'c', '.', '.', '.', '.', '.', 'c', '.'],
+    ['.', '.', '.', '.', '.', '.', '.', '.', '.'],
+    ['r', 'h', 'e', 'a', 'g', 'a', 'e', 'h', 'r'],
+  ];
+}
+
 const xiangqiController = {
   // Maps for tracking active connections
   socketToRoom: new Map(),
   roomSockets: new Map(),
 
-  async authenticateSocket(socket) {
-    const token = socket.handshake.auth?.token || socket.handshake.query?.token;
-    if (token) {
-      try {
-        const decoded = jwt.verify(
-          token,
-          process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET
-        );
-        const user = await User.findById(decoded.id).select(
-          '_id username email'
-        );
-        if (user) {
-          socket.data.user = user;
-          return user;
-        }
-      } catch (e) {
-        // Invalid token ignored
-      }
-    }
-    return null;
-  },
-
   async handleConnection(socket, io) {
-    const user = await this.authenticateSocket(socket);
-    socket.emit('xiangqi_connected', {
+    const user = socket.data.user;
+    socket.emit('connect', {
       message: 'Connected to Xiangqi game server',
-      authenticated: !!user,
+      authenticated: socket.data.authenticated,
     });
 
-    // Handle joining a room via socket
-    socket.on('join_game_room', async ({ roomId }) => {
-      if (!roomId) {
-        return socket.emit('error', { message: 'Room ID is required' });
+    // Handle creating a new room
+    socket.on('create-room', async () => {
+      if (!user) {
+        return socket.emit('error', 'Authentication required');
       }
 
-      const game = await Game.findOne({ roomId }).populate(
-        'players.red players.black',
-        'username email'
-      );
-      if (!game) {
-        return socket.emit('error', { message: 'Room not found' });
-      }
+      try {
+        const roomId = nanoid(8);
+        const board = initialBoard();
 
-      // Check if user is part of this game
-      const isRedPlayer =
-        game.players.red &&
-        game.players.red._id.toString() === user?._id.toString();
-      const isBlackPlayer =
-        game.players.black &&
-        game.players.black._id.toString() === user?._id.toString();
-
-      if (!isRedPlayer && !isBlackPlayer) {
-        return socket.emit('error', {
-          message: 'You are not part of this game',
+        const gameDoc = new Game({
+          roomId,
+          players: { red: user._id, black: null },
+          status: 'waiting',
+          turn: 'red',
+          board,
+          startedAt: null,
         });
+
+        await gameDoc.save();
+
+        // Join the room
+        socket.join(roomId);
+        this.socketToRoom.set(socket.id, roomId);
+
+        // Track sockets in room
+        if (!this.roomSockets.has(roomId)) {
+          this.roomSockets.set(roomId, new Set());
+        }
+        this.roomSockets.get(roomId).add(socket.id);
+
+        socket.data.color = 'red';
+        socket.data.roomId = roomId;
+
+        socket.emit('room-created', {
+          roomId,
+          playerColor: 'red',
+        });
+      } catch (error) {
+        socket.emit('error', 'Failed to create room');
       }
-
-      // Join the room
-      socket.join(roomId);
-      this.socketToRoom.set(socket.id, roomId);
-
-      // Track sockets in room
-      if (!this.roomSockets.has(roomId)) {
-        this.roomSockets.set(roomId, new Set());
-      }
-      this.roomSockets.get(roomId).add(socket.id);
-
-      socket.data.color = isRedPlayer ? 'red' : 'black';
-      socket.data.roomId = roomId;
-
-      socket.emit('joined_game_room', {
-        roomId,
-        color: socket.data.color,
-        game: {
-          status: game.status,
-          board: game.board,
-          turn: game.turn,
-          players: game.players,
-        },
-      });
-
-      // Notify other players in room
-      socket.to(roomId).emit('player_joined', {
-        playerId: user._id,
-        username: user.username,
-        color: socket.data.color,
-      });
     });
 
-    // Handle game moves - no validation, client sends piece name and coordinates
-    socket.on('make_move', async ({ piece, from, to, captured }) => {
-      const roomId = socket.data.roomId;
+    // Handle joining an existing room
+    socket.on('join-room', async ({ roomId }) => {
+      if (!user) {
+        return socket.emit('room-error', 'Authentication required');
+      }
+
       if (!roomId) {
-        return socket.emit('error', { message: 'You are not in a game room' });
+        return socket.emit('room-error', 'Room ID is required');
+      }
+
+      try {
+        const game = await Game.findOne({ roomId }).populate(
+          'players.red players.black',
+          'username email'
+        );
+
+        if (!game) {
+          return socket.emit('room-error', 'Room not found');
+        }
+
+        if (game.status !== 'waiting') {
+          return socket.emit(
+            'room-error',
+            'Game has already started or finished'
+          );
+        }
+
+        if (game.players.black) {
+          return socket.emit('room-error', 'Room is already full');
+        }
+
+        if (game.players.red.toString() === user._id.toString()) {
+          return socket.emit('room-error', 'You cannot join your own room');
+        }
+
+        // Add the user as black player
+        game.players.black = user._id;
+        game.status = 'active';
+        game.startedAt = new Date();
+        await game.save();
+
+        // Populate after save
+        await game.populate('players.red players.black', 'username email');
+
+        // Join the room
+        socket.join(roomId);
+        this.socketToRoom.set(socket.id, roomId);
+
+        // Track sockets in room
+        if (!this.roomSockets.has(roomId)) {
+          this.roomSockets.set(roomId, new Set());
+        }
+        this.roomSockets.get(roomId).add(socket.id);
+
+        socket.data.color = 'black';
+        socket.data.roomId = roomId;
+
+        const roomInfo = {
+          roomId,
+          players: [
+            game.players.red._id.toString(),
+            game.players.black._id.toString(),
+          ],
+          currentPlayer: game.turn,
+        };
+
+        socket.emit('room-joined', {
+          playerId: user._id.toString(),
+          playerColor: 'black',
+          roomInfo,
+        });
+
+        // Notify the red player that someone joined
+        socket.to(roomId).emit('player-joined', {
+          playerId: user._id.toString(),
+          playerColor: 'black',
+          roomInfo,
+        });
+      } catch (error) {
+        socket.emit('room-error', 'Failed to join room');
+      }
+    });
+
+    // Handle leaving a room
+    socket.on('leave-room', async ({ roomId }) => {
+      if (roomId) {
+        socket.leave(roomId);
+
+        // Remove from tracking
+        const roomSockets = this.roomSockets.get(roomId);
+        if (roomSockets) {
+          roomSockets.delete(socket.id);
+          if (roomSockets.size === 0) {
+            this.roomSockets.delete(roomId);
+          }
+        }
+        this.socketToRoom.delete(socket.id);
+
+        // Notify other players
+        socket.to(roomId).emit('player-left', socket.data.user?._id);
+
+        socket.data.color = null;
+        socket.data.roomId = null;
+      }
+    });
+
+    // Handle game moves from frontend
+    socket.on('game-move', async ({ roomId, move }) => {
+      if (!roomId || !move) {
+        return socket.emit('error', 'Invalid move data');
+      }
+
+      if (socket.data.roomId !== roomId) {
+        return socket.emit('error', 'You are not in this game room');
       }
 
       const game = await Game.findOne({ roomId });
       if (!game || game.status !== 'active') {
-        return socket.emit('error', { message: 'Game is not active' });
+        return socket.emit('error', 'Game is not active');
       }
 
-      const color = socket.data.color;
+      // Check if it's the player's turn
+      if (game.turn !== socket.data.color) {
+        return socket.emit('error', 'It is not your turn');
+      }
 
-      // Get current move number
-      const moveCount = await Move.countDocuments({ game: game._id });
-      const moveNumber = moveCount + 1;
+      try {
+        // Get current move number
+        const moveCount = await Move.countDocuments({ game: game._id });
+        const moveNumber = moveCount + 1;
 
-      // Create new move record
-      const newMove = new Move({
-        game: game._id,
-        moveNumber,
-        piece,
-        from,
-        to,
-        captured: captured || null,
-        playedBy: socket.data.user._id,
-        color,
-      });
+        // Create new move record
+        const newMove = new Move({
+          game: game._id,
+          moveNumber,
+          piece: move.piece.type,
+          from: `${move.fromRow},${move.fromCol}`,
+          to: `${move.toRow},${move.toCol}`,
+          captured: null, // You can implement capture detection here
+          playedBy: socket.data.user._id,
+          color: socket.data.color,
+        });
 
-      await newMove.save();
+        await newMove.save();
 
-      // Update game turn and last activity
-      game.turn = opposite(game.turn);
-      game.lastActivityAt = new Date();
-      await game.save();
+        // Update game turn and last activity
+        game.turn = opposite(game.turn);
+        game.lastActivityAt = new Date();
+        await game.save();
 
-      // Populate the move for broadcasting
-      await newMove.populate('playedBy', 'username email');
-
-      // Broadcast move to all players in room
-      io.to(roomId).emit('move_made', {
-        move: {
-          id: newMove._id,
-          piece: newMove.piece,
-          from: newMove.from,
-          to: newMove.to,
-          captured: newMove.captured,
-          moveNumber: newMove.moveNumber,
-          playedBy: newMove.playedBy,
-          color: newMove.color,
-          createdAt: newMove.createdAt,
-        },
-        turn: game.turn,
-        moveNumber,
-      });
+        // Broadcast move to other players in room (not sender)
+        socket.to(roomId).emit('move-received', {
+          fromRow: move.fromRow,
+          fromCol: move.fromCol,
+          toRow: move.toRow,
+          toCol: move.toCol,
+          piece: move.piece,
+          playerId: move.playerId,
+        });
+      } catch (error) {
+        socket.emit('error', 'Failed to process move');
+      }
     });
 
     // Handle resignation
