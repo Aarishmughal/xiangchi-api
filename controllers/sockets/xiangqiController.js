@@ -63,6 +63,8 @@ const xiangqiController = {
 
         await gameDoc.save();
 
+        console.log(`Room ${roomId} created by user ${currentUser._id}`, gameDoc);
+
         // Join the room
         socket.join(roomId);
         this.socketToRoom.set(socket.id, roomId);
