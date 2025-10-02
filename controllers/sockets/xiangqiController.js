@@ -1,8 +1,6 @@
-const jwt = require('jsonwebtoken');
 const { nanoid } = require('nanoid');
 const Game = require('../../models/game');
 const Move = require('../../models/move');
-const User = require('../../models/user');
 
 function opposite(color) {
   return color === 'red' ? 'black' : 'red';
@@ -30,7 +28,6 @@ const xiangqiController = {
   roomSockets: new Map(),
 
   async handleConnection(socket, io) {
-    const user = socket.data.user;
     socket.emit('xiangqi-connected', {
       message: 'Connected to Xiangqi game server',
       authenticated: socket.data.authenticated,
@@ -38,8 +35,17 @@ const xiangqiController = {
 
     // Handle creating a new room
     socket.on('create-room', async () => {
-      if (!user) {
-        return socket.emit('error', 'Authentication required');
+      // Temporary: allow without authentication for testing
+      let currentUser = socket.data.user;
+
+      // If no authenticated user, create a temporary user for testing
+      if (!currentUser) {
+        // For testing purposes - in production you should require authentication
+        currentUser = {
+          _id: socket.id,
+          username: 'Anonymous',
+          email: 'test@test.com',
+        };
       }
 
       try {
@@ -48,7 +54,7 @@ const xiangqiController = {
 
         const gameDoc = new Game({
           roomId,
-          players: { red: user._id, black: null },
+          players: { red: currentUser._id, black: null },
           status: 'waiting',
           turn: 'red',
           board,
@@ -81,8 +87,17 @@ const xiangqiController = {
 
     // Handle joining an existing room
     socket.on('join-room', async ({ roomId }) => {
-      if (!user) {
-        return socket.emit('room-error', 'Authentication required');
+      // Temporary: allow without authentication for testing
+      let currentUser = socket.data.user;
+
+      // If no authenticated user, create a temporary user for testing
+      if (!currentUser) {
+        // For testing purposes - in production you should require authentication
+        currentUser = {
+          _id: socket.id,
+          username: 'Anonymous',
+          email: 'test@test.com',
+        };
       }
 
       if (!roomId) {
@@ -110,12 +125,12 @@ const xiangqiController = {
           return socket.emit('room-error', 'Room is already full');
         }
 
-        if (game.players.red.toString() === user._id.toString()) {
+        if (game.players.red.toString() === currentUser._id.toString()) {
           return socket.emit('room-error', 'You cannot join your own room');
         }
 
         // Add the user as black player
-        game.players.black = user._id;
+        game.players.black = currentUser._id;
         game.status = 'active';
         game.startedAt = new Date();
         await game.save();
@@ -146,14 +161,14 @@ const xiangqiController = {
         };
 
         socket.emit('room-joined', {
-          playerId: user._id.toString(),
+          playerId: currentUser._id.toString(),
           playerColor: 'black',
           roomInfo,
         });
 
         // Notify the red player that someone joined
         socket.to(roomId).emit('player-joined', {
-          playerId: user._id.toString(),
+          playerId: currentUser._id.toString(),
           playerColor: 'black',
           roomInfo,
         });
