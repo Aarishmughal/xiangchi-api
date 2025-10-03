@@ -210,21 +210,45 @@ const xiangqiController = {
         return socket.emit('error', 'Invalid move data');
       }
 
-      if (socket.data.roomId !== roomId) {
-        return socket.emit('error', 'You are not in this game room');
-      }
-
-      const game = await Game.findOne({ roomId });
-      if (!game || game.status !== 'active') {
-        return socket.emit('error', 'Game is not active');
-      }
-
-      // Check if it's the player's turn
-      if (game.turn !== socket.data.color) {
-        return socket.emit('error', 'It is not your turn');
-      }
-
       try {
+        const game = await Game.findOne({ roomId });
+        if (!game) {
+          return socket.emit('error', 'Game room not found');
+        }
+
+        if (game.status !== 'active') {
+          return socket.emit('error', 'Game is not active');
+        }
+
+        // Determine player's color based on userId or socket data
+        let playerColor = socket.data.color;
+
+        // If socket.data.color is not set, try to determine from game
+        if (!playerColor && socket.data.user) {
+          const userId = socket.data.user._id.toString();
+          if (game.players.red.toString() === userId) {
+            playerColor = 'red';
+            socket.data.color = 'red';
+            socket.data.roomId = roomId;
+          } else if (
+            game.players.black &&
+            game.players.black.toString() === userId
+          ) {
+            playerColor = 'black';
+            socket.data.color = 'black';
+            socket.data.roomId = roomId;
+          }
+        }
+
+        if (!playerColor) {
+          return socket.emit('error', 'Could not determine player color');
+        }
+
+        // Check if it's the player's turn
+        if (game.turn !== playerColor) {
+          return socket.emit('error', 'It is not your turn');
+        }
+
         // Get current move number
         const moveCount = await Move.countDocuments({ game: game._id });
         const moveNumber = moveCount + 1;
@@ -241,7 +265,7 @@ const xiangqiController = {
           to: `${move.toRow},${move.toCol}`,
           captured: null, // You can implement capture detection here
           playedBy: playerId,
-          color: socket.data.color,
+          color: playerColor,
         });
 
         await newMove.save();
@@ -260,8 +284,13 @@ const xiangqiController = {
           piece: move.piece,
           playerId: move.playerId,
         });
+
+        console.log(
+          `Move processed successfully for room ${roomId}, player ${playerColor}`
+        );
       } catch (error) {
-        socket.emit('error', 'Failed to process move');
+        console.error('Error processing move:', error);
+        socket.emit('error', `Failed to process move: ${error.message}`);
       }
     });
 
