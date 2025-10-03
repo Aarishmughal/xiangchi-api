@@ -1,4 +1,5 @@
 const { nanoid } = require('nanoid');
+const mongoose = require('mongoose');
 const Game = require('../../models/game');
 const Move = require('../../models/move');
 
@@ -38,11 +39,12 @@ const xiangqiController = {
       // Temporary: allow without authentication for testing
       let currentUser = socket.data.user;
 
-      // If no authenticated user, create a temporary user for testing
+      // If no authenticated user, create a temporary user ID for testing
       if (!currentUser) {
-        // For testing purposes - in production you should require authentication
+        // For testing purposes - use a valid ObjectId format
+        // In production you should require authentication
         currentUser = {
-          _id: socket.id,
+          _id: new mongoose.Types.ObjectId(), // Generate valid ObjectId for anonymous users
           username: 'Anonymous',
           email: 'test@test.com',
         };
@@ -51,6 +53,8 @@ const xiangqiController = {
       try {
         const roomId = nanoid(8);
         const board = initialBoard();
+
+        console.log('Creating game with user:', currentUser);
 
         const gameDoc = new Game({
           roomId,
@@ -62,6 +66,7 @@ const xiangqiController = {
         });
 
         await gameDoc.save();
+        console.log('Game created successfully:', roomId);
 
         // Join the room
         socket.join(roomId);
@@ -81,7 +86,8 @@ const xiangqiController = {
           playerColor: 'red',
         });
       } catch (error) {
-        socket.emit('error', 'Failed to create room');
+        console.error('Error creating room:', error);
+        socket.emit('error', `Failed to create room: ${error.message}`);
       }
     });
 
@@ -90,11 +96,12 @@ const xiangqiController = {
       // Temporary: allow without authentication for testing
       let currentUser = socket.data.user;
 
-      // If no authenticated user, create a temporary user for testing
+      // If no authenticated user, create a temporary user ID for testing
       if (!currentUser) {
-        // For testing purposes - in production you should require authentication
+        // For testing purposes - use a valid ObjectId format
+        // In production you should require authentication
         currentUser = {
-          _id: socket.id,
+          _id: new mongoose.Types.ObjectId(), // Generate valid ObjectId for anonymous users
           username: 'Anonymous',
           email: 'test@test.com',
         };
@@ -225,6 +232,9 @@ const xiangqiController = {
         const moveCount = await Move.countDocuments({ game: game._id });
         const moveNumber = moveCount + 1;
 
+        // For anonymous users, use socket.id if no user is authenticated
+        const playerId = socket.data.user?._id || new mongoose.Types.ObjectId();
+
         // Create new move record
         const newMove = new Move({
           game: game._id,
@@ -233,7 +243,7 @@ const xiangqiController = {
           from: `${move.fromRow},${move.fromCol}`,
           to: `${move.toRow},${move.toCol}`,
           captured: null, // You can implement capture detection here
-          playedBy: socket.data.user._id,
+          playedBy: playerId,
           color: socket.data.color,
         });
 
