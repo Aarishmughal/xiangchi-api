@@ -254,15 +254,16 @@ const xiangqiController = {
         const moveNumber = moveCount + 1;
 
         // For anonymous users, use socket.id if no user is authenticated
+
         const playerId = socket.data.user?._id || new mongoose.Types.ObjectId();
 
-        // Create new move record
+        // Create new move record with correct schema
         const newMove = new Move({
           game: game._id,
           moveNumber,
           piece: move.piece.type,
-          from: `${move.fromRow},${move.fromCol}`,
-          to: `${move.toRow},${move.toCol}`,
+          from: { r: move.fromRow, c: move.fromCol },
+          to: { r: move.toRow, c: move.toCol },
           captured: null, // You can implement capture detection here
           playedBy: playerId,
           color: playerColor,
