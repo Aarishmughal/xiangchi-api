@@ -37,6 +37,7 @@ const xiangqiController = {
     // Handle creating a new room
     socket.on('create-room', async () => {
       // Temporary: allow without authentication for testing
+      console.log('Current socket user data:', socket.data.user);
       let currentUser = socket.data.user;
 
       // If no authenticated user, create a temporary user ID for testing
@@ -53,9 +54,9 @@ const xiangqiController = {
       try {
         const roomId = nanoid(8);
         const board = initialBoard();
-
-        console.log('Creating game with user:', currentUser);
-
+        console.log(
+          `Room ${roomId} created by user ${currentUser._id}`
+        );
         const gameDoc = new Game({
           roomId,
           players: { red: currentUser._id, black: null },
