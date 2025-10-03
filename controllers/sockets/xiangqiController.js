@@ -54,9 +54,7 @@ const xiangqiController = {
       try {
         const roomId = nanoid(8);
         const board = initialBoard();
-        console.log(
-          `Room ${roomId} created by user ${currentUser._id}`
-        );
+        console.log(`Room ${roomId} created by user ${currentUser._id}`);
         const gameDoc = new Game({
           roomId,
           players: { red: currentUser._id, black: null },
@@ -113,10 +111,7 @@ const xiangqiController = {
       }
 
       try {
-        const game = await Game.findOne({ roomId }).populate(
-          'players.red players.black',
-          'username email'
-        );
+        const game = await Game.findOne({ roomId });
 
         if (!game) {
           return socket.emit('room-error', 'Room not found');
@@ -133,7 +128,13 @@ const xiangqiController = {
           return socket.emit('room-error', 'Room is already full');
         }
 
-        if (game.players.red.toString() === currentUser._id.toString()) {
+        // For anonymous users, we can't check if they're joining their own room
+        // because we generate new ObjectIds each time
+        // In production with real authentication, this check would work
+        if (
+          socket.data.user &&
+          game.players.red.toString() === currentUser._id.toString()
+        ) {
           return socket.emit('room-error', 'You cannot join your own room');
         }
 
@@ -142,9 +143,6 @@ const xiangqiController = {
         game.status = 'active';
         game.startedAt = new Date();
         await game.save();
-
-        // Populate after save
-        await game.populate('players.red players.black', 'username email');
 
         // Join the room
         socket.join(roomId);
@@ -161,10 +159,7 @@ const xiangqiController = {
 
         const roomInfo = {
           roomId,
-          players: [
-            game.players.red._id.toString(),
-            game.players.black._id.toString(),
-          ],
+          players: [game.players.red.toString(), game.players.black.toString()],
           currentPlayer: game.turn,
         };
 
@@ -181,7 +176,8 @@ const xiangqiController = {
           roomInfo,
         });
       } catch (error) {
-        socket.emit('room-error', 'Failed to join room');
+        console.error('Error joining room:', error);
+        socket.emit('room-error', `Failed to join room: ${error.message}`);
       }
     });
 
